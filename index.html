@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="OpenAI Responses API로 대화를 이어가는 Vanilla JavaScript 실습 챗봇" />
+    <title>Responses Lab — 대화의 시작</title>
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <header class="site-header">
+        <a class="brand" href="/" aria-label="Responses Lab 홈">
+          <span class="brand-mark" aria-hidden="true">r.</span>
+          <span>Responses Lab</span>
+        </a>
+        <span class="site-caption">작은 질문에서 시작하는 대화</span>
+      </header>
+
+      <main>
+        <div class="page-heading">
+          <div>
+            <h1>생각을 나누는 공간.</h1>
+            <p>궁금한 것을 묻고, 다음 질문으로 이어가 보세요.</p>
+          </div>
+          <div class="api-state" role="status" aria-live="polite" aria-atomic="true">
+            <span class="api-state-label">API 상태</span>
+            <span id="api-status" class="status-badge" data-state="unconfigured">키 미설정</span>
+          </div>
+        </div>
+
+        <section class="chat-panel" aria-label="AI와 대화">
+          <div class="chat-toolbar">
+            <div class="conversation-info">
+              <span class="conversation-title">현재 대화</span>
+              <span id="message-count" class="message-count">0개 메시지</span>
+            </div>
+            <button id="reset-button" class="reset-button" type="button" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path d="M3 10a9 9 0 1 1 2.4 8.1M3 4v6h6" />
+              </svg>
+              대화 초기화
+            </button>
+          </div>
+
+          <div id="conversation" class="conversation">
+            <div id="empty-state" class="empty-state">
+              <div class="conversation-symbol" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M38 40H17L7 47V12h39v19" />
+                  <path d="M29 28h28v27l-8-6H29V28Z" />
+                  <path d="M16 22h19M16 29h9M37 37h12M37 42h8" />
+                </svg>
+              </div>
+              <h2>어떤 이야기를 나눠 볼까요?</h2>
+              <p>짧은 질문도, 아직 정리되지 않은 생각도 좋아요.</p>
+              <div class="suggestions" aria-label="질문 예시">
+                <button class="suggestion" type="button">Responses API가 무엇인지 쉽게 설명해 줘</button>
+                <button class="suggestion" type="button">JavaScript의 비동기를 예시로 알려 줘</button>
+                <button class="suggestion" type="button">오늘의 공부 계획을 함께 세워 줘</button>
+              </div>
+            </div>
+            <div id="messages" class="messages" role="log" aria-label="대화 내용" aria-live="polite" aria-relevant="additions text"></div>
+          </div>
+
+          <div class="composer-area">
+            <div id="key-notice" class="notice key-notice">
+              <strong>API 키를 먼저 설정해 주세요.</strong>
+              <p>루트의 <code>.env.local</code>에 <code>VITE_OPENAI_API_KEY</code>를 입력한 뒤 개발 서버를 재시작하세요.</p>
+            </div>
+            <div id="request-error" class="notice error-notice" role="alert" hidden>
+              <strong>요청을 완료하지 못했어요.</strong>
+              <p id="error-message"></p>
+            </div>
+            <form id="chat-form" class="composer" aria-label="메시지 전송">
+              <label class="sr-only" for="message-input">메시지</label>
+              <textarea id="message-input" name="message" rows="2" maxlength="12000" placeholder="무엇이든 물어보세요…" aria-describedby="input-help" required></textarea>
+              <div class="composer-bottom">
+                <span id="input-help">Enter로 전송, Shift + Enter로 줄바꿈</span>
+                <button id="send-button" class="send-button" type="submit" disabled>
+                  <span id="send-label">전송</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M12 19V5m-6 6 6-6 6 6" />
+                  </svg>
+                </button>
+              </div>
+            </form>
+            <div class="chat-footnote">
+              <span>모델 <span id="model-name" class="model-name"></span></span>
+              <span>AI의 답변은 틀릴 수 있으니 중요한 내용은 확인하세요.</span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="learning-note" aria-label="교육용 실습 안내">
+          <p><strong>로컬 학습용 실습</strong> 브라우저 환경 변수는 API 키를 숨기지 못합니다. 실제 키가 포함된 빌드 결과물을 공개 배포하지 마세요.</p>
+          <a href="https://developers.openai.com/api/docs/guides/text" target="_blank" rel="noreferrer">OpenAI 공식 문서</a>
+        </aside>
+      </main>
+
+      <footer class="site-footer">
+        <span>질문하고, 이해하고, 이어가기.</span>
+        <span>Vanilla JavaScript / Responses API</span>
+      </footer>
+    </div>
+
+    <template id="message-template">
+      <article class="message">
+        <div class="message-avatar" aria-hidden="true"></div>
+        <div class="message-body">
+          <h3 class="message-author"></h3>
+          <p class="message-content"></p>
+        </div>
+      </article>
+    </template>
+
+    <template id="loading-template">
+      <article class="message message--assistant loading-message">
+        <div class="message-avatar" aria-hidden="true">r.</div>
+        <div class="message-body">
+          <h3 class="message-author">Responses</h3>
+          <p class="loading-text" role="status"><span class="loading-spinner" aria-hidden="true"></span>답변을 생각하고 있어요…</p>
+        </div>
+      </article>
+    </template>
+
+    <noscript><p class="noscript-notice">챗봇을 사용하려면 브라우저에서 JavaScript를 활성화해 주세요.</p></noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
